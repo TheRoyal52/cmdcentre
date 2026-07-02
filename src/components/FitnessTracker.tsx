@@ -5,21 +5,22 @@ import type { WorkoutLog, WorkoutType } from '../types';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
-import { Dumbbell, Plus, Trash2, Flame, Timer, Zap } from 'lucide-react';
+import { Dumbbell, Plus, Trash2, Flame, Timer, Zap, Activity } from 'lucide-react';
+import { toast } from 'sonner';
 import { twMerge } from 'tailwind-merge';
 
 const WORKOUT_TYPES: WorkoutType[] = ['Cardio', 'Strength', 'Yoga', 'HIIT', 'Other'];
 
-const TYPE_STYLES: Record<WorkoutType, { badge: string; color: string }> = {
-  Cardio:   { badge: 'bg-orange-500/15 text-orange-400 border-orange-500/30',  color: '#f97316' },
-  Strength: { badge: 'bg-blue-500/15 text-blue-400 border-blue-500/30',        color: '#3b82f6' },
-  Yoga:     { badge: 'bg-purple-500/15 text-purple-400 border-purple-500/30',  color: '#a855f7' },
-  HIIT:     { badge: 'bg-red-500/15 text-red-400 border-red-500/30',           color: '#ef4444' },
-  Other:    { badge: 'bg-slate-500/15 text-slate-400 border-slate-500/30',     color: '#94a3b8' },
+const TYPE_STYLES: Record<WorkoutType, { badge: string; color: string; dot: string }> = {
+  Cardio:   { badge: 'bg-[#F9731615] text-[#FB923C] border-[#F9731625]', color: '#F97316', dot: '#FB923C' },
+  Strength: { badge: 'bg-[#6366F115] text-[#818CF8] border-[#6366F125]', color: '#6366F1', dot: '#818CF8' },
+  Yoga:     { badge: 'bg-[#A78BFA15] text-[#A78BFA] border-[#A78BFA25]', color: '#A78BFA', dot: '#A78BFA' },
+  HIIT:     { badge: 'bg-[#EF444415] text-[#F87171] border-[#EF444425]', color: '#EF4444', dot: '#F87171' },
+  Other:    { badge: 'bg-[#47556915] text-[#94A3B8] border-[#47556925]', color: '#94A3B8', dot: '#94A3B8' },
 };
 
-const TYPE_EMOJIS: Record<WorkoutType, string> = {
-  Cardio: '🏃', Strength: '💪', Yoga: '🧘', HIIT: '⚡', Other: '🏋️',
+const TYPE_LABELS: Record<WorkoutType, string> = {
+  Cardio: 'Cardio', Strength: 'Strength', Yoga: 'Yoga', HIIT: 'HIIT', Other: 'Other',
 };
 
 const getLast7Days = () => {
@@ -36,9 +37,9 @@ const getLast7Days = () => {
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-slate-800 border border-slate-700 rounded-xl p-3 shadow-xl text-xs">
-      <p className="font-bold text-slate-200 mb-1">{label}</p>
-      <p className="text-orange-400">{payload[0]?.value} min</p>
+    <div className="bg-[#18181F] border border-[#2D2D42] rounded-lg p-3 shadow-overlay text-xs">
+      <p className="font-semibold text-[#F1F5F9] mb-1">{label}</p>
+      <p className="text-[#F97316] font-mono">{payload[0]?.value} min</p>
     </div>
   );
 };
@@ -70,9 +71,10 @@ export const FitnessTracker: React.FC = () => {
     setExercise('');
     setDuration(30);
     setCalories('');
+    toast.success('Workout logged.');
   };
 
-  const deleteLog = async (id: string) => deleteDoc(doc(db, 'workouts', id));
+  const deleteLog = async (id: string) => { await deleteDoc(doc(db, 'workouts', id)); toast.success('Entry deleted.'); };
 
   // Weekly chart data
   const chartData = useMemo(() => {
@@ -106,108 +108,107 @@ export const FitnessTracker: React.FC = () => {
   const weekMins  = chartData.reduce((s, d) => s + d.mins, 0);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Stats row */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="bg-slate-800/60 border border-slate-700 rounded-xl p-4 text-center">
-          <div className="flex items-center justify-center gap-1.5 mb-1">
-            <Flame className="w-5 h-5 text-orange-400" />
-            <span className="text-2xl font-bold text-orange-400 font-mono">{streak}</span>
+      <div className="grid grid-cols-3 gap-3">
+        <div className="bg-[#111118] border border-[#1E1E2E] rounded-lg p-4 text-center">
+          <div className="flex items-center justify-center gap-2 mb-1">
+            <Flame className={twMerge('w-5 h-5', streak > 0 ? 'text-[#F97316] flame-flicker' : 'text-[#334155]')} />
+            <span className="text-2xl font-bold font-mono" style={{ color: streak > 0 ? '#F97316' : '#334155' }}>{streak}</span>
           </div>
-          <p className="text-[11px] text-slate-500 uppercase tracking-wide">Day Streak</p>
+          <p className="section-label">Day Streak</p>
         </div>
-        <div className="bg-slate-800/60 border border-slate-700 rounded-xl p-4 text-center">
-          <div className="flex items-center justify-center gap-1.5 mb-1">
-            <Timer className="w-5 h-5 text-blue-400" />
-            <span className="text-2xl font-bold text-blue-400 font-mono">{todayMins}</span>
+        <div className="bg-[#111118] border border-[#1E1E2E] rounded-lg p-4 text-center">
+          <div className="flex items-center justify-center gap-2 mb-1">
+            <Timer className="w-5 h-5 text-[#6366F1]" />
+            <span className="text-2xl font-bold text-[#818CF8] font-mono">{todayMins}</span>
           </div>
-          <p className="text-[11px] text-slate-500 uppercase tracking-wide">Mins Today</p>
+          <p className="section-label">Mins Today</p>
         </div>
-        <div className="bg-slate-800/60 border border-slate-700 rounded-xl p-4 text-center">
-          <div className="flex items-center justify-center gap-1.5 mb-1">
-            <Zap className="w-5 h-5 text-yellow-400" />
-            <span className="text-2xl font-bold text-yellow-400 font-mono">{weekMins}</span>
+        <div className="bg-[#111118] border border-[#1E1E2E] rounded-lg p-4 text-center">
+          <div className="flex items-center justify-center gap-2 mb-1">
+            <Activity className="w-5 h-5 text-[#10B981]" />
+            <span className="text-2xl font-bold text-[#10B981] font-mono">{weekMins}</span>
           </div>
-          <p className="text-[11px] text-slate-500 uppercase tracking-wide">Mins This Week</p>
+          <p className="section-label">Mins This Week</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Log form */}
-        <div className="bg-slate-800/60 border border-slate-700 rounded-2xl p-5 space-y-4">
-          <h2 className="text-lg font-bold text-slate-100 flex items-center gap-2">
-            <Dumbbell className="w-5 h-5 text-orange-400" /> Log Workout
-          </h2>
+        <div className="bg-[#111118] border border-[#1E1E2E] rounded-lg p-5 space-y-4">
+          <div className="flex items-center gap-2">
+            <Dumbbell className="w-4 h-4 text-[#F97316]" strokeWidth={1.75} />
+            <h2 className="text-[14px] font-semibold text-[#F1F5F9]">Log Workout</h2>
+          </div>
           <form onSubmit={addLog} className="space-y-3">
             <input type="text" value={exercise} onChange={e => setExercise(e.target.value)}
-              placeholder="Exercise (e.g. Running, Bench Press, Surya Namaskar)"
-              className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors" />
+              placeholder="Exercise (e.g. Running, Bench Press, Yoga)"
+              className="input-base"
+              aria-label="Exercise name" />
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs text-slate-400 mb-1 block font-medium">Duration (min)</label>
-                <input type="number" min={1} max={300} value={duration}
+                <label className="section-label block mb-1.5" htmlFor="fit-duration">Duration (min)</label>
+                <input id="fit-duration" type="number" min={1} max={300} value={duration}
                   onChange={e => setDuration(Number(e.target.value))}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors" />
+                  className="input-base" />
               </div>
               <div>
-                <label className="text-xs text-slate-400 mb-1 block font-medium">Calories burned (opt)</label>
-                <input type="number" min={0} value={calories}
+                <label className="section-label block mb-1.5" htmlFor="fit-calories">Calories burned (opt)</label>
+                <input id="fit-calories" type="number" min={0} value={calories}
                   onChange={e => setCalories(e.target.value)}
                   placeholder="e.g. 300"
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 transition-colors" />
+                  className="input-base" />
               </div>
             </div>
 
-            {/* Type selector */}
             <div className="flex flex-wrap gap-2">
               {WORKOUT_TYPES.map(t => (
                 <button key={t} type="button" onClick={() => setType(t)}
-                  className={twMerge('px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all',
-                    type === t ? TYPE_STYLES[t].badge + ' scale-105' : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-500')}>
-                  {TYPE_EMOJIS[t]} {t}
+                  className={twMerge(
+                    'px-3 py-1.5 rounded-md text-[12px] font-semibold border transition-all',
+                    type === t ? TYPE_STYLES[t].badge : 'bg-[#0D0D12] border-[#1E1E2E] text-[#475569] hover:border-[#2D2D42] hover:text-[#94A3B8]',
+                  )}>
+                  {TYPE_LABELS[t]}
                 </button>
               ))}
             </div>
 
             <button type="submit"
-              className="w-full bg-orange-500 hover:bg-orange-400 active:scale-95 text-slate-900 font-bold py-2.5 rounded-xl text-sm transition-all flex items-center justify-center gap-2">
+              className="w-full flex items-center justify-center gap-2 bg-[#F97316] hover:bg-[#FB923C] active:scale-95 text-[#09090B] font-bold py-2.5 rounded-md text-sm transition-all">
               <Plus className="w-4 h-4" /> Log Workout
             </button>
           </form>
         </div>
 
         {/* Weekly chart */}
-        <div className="bg-slate-800/60 border border-slate-700 rounded-2xl p-5">
-          <h3 className="text-sm font-bold text-slate-300 mb-4">Weekly Activity (minutes)</h3>
+        <div className="bg-[#111118] border border-[#1E1E2E] rounded-lg p-5">
+          <p className="text-[12px] font-semibold text-[#94A3B8] mb-4">Weekly Activity (minutes)</p>
           <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={chartData} barSize={28}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-              <XAxis dataKey="label" stroke="#475569" fontSize={12} tickLine={false} axisLine={false} />
-              <YAxis stroke="#475569" fontSize={12} tickLine={false} axisLine={false} width={28} />
-              <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
-              <Bar dataKey="mins" fill="#f97316" radius={[6, 6, 0, 0]} />
+            <BarChart data={chartData} barSize={26}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#1E1E2E" vertical={false} />
+              <XAxis dataKey="label" stroke="#475569" fontSize={11} tickLine={false} axisLine={false} />
+              <YAxis stroke="#475569" fontSize={11} tickLine={false} axisLine={false} width={28} />
+              <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.02)' }} />
+              <Bar dataKey="mins" fill="#F97316" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
 
-          {/* Today's workouts */}
-          <div className="mt-4 space-y-2 max-h-[160px] overflow-y-auto">
-            <p className="text-xs text-slate-500 font-semibold uppercase tracking-wide">Today</p>
+          <div className="mt-4 space-y-2 max-h-[150px] overflow-y-auto">
+            <p className="section-label">Today</p>
             {todayLogs.length === 0
-              ? <p className="text-slate-600 text-sm py-3 text-center">No workouts logged today 💤</p>
+              ? <p className="text-[#334155] text-sm py-3 text-center font-mono">No workouts logged today</p>
               : todayLogs.map(log => (
-                <div key={log.id} className="flex items-center justify-between bg-slate-900 px-4 py-2.5 rounded-xl border border-slate-700/80 group">
+                <div key={log.id} className="flex items-center justify-between bg-[#0D0D12] border border-[#1E1E2E] px-3 py-2.5 rounded-md group hover:border-[#2D2D42] transition-colors">
                   <div>
-                    <p className="text-sm font-medium text-slate-200">{TYPE_EMOJIS[log.type]} {log.exercise}</p>
-                    <p className="text-xs text-slate-500">{log.duration} min{log.calories ? ` · ${log.calories} kcal` : ''}</p>
+                    <p className="text-sm font-medium text-[#F1F5F9]">{log.exercise}</p>
+                    <p className="text-[11px] text-[#475569] font-mono">{log.duration} min{log.calories ? ` · ${log.calories} kcal` : ''}</p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className={twMerge('text-[11px] px-2 py-0.5 rounded-md border font-semibold', TYPE_STYLES[log.type].badge)}>
-                      {log.type}
-                    </span>
-                    <button onClick={() => deleteLog(log.id)}
-                      className="opacity-0 group-hover:opacity-100 text-slate-600 hover:text-red-400 transition-all">
-                      <Trash2 className="w-3.5 h-3.5" />
+                    <span className={twMerge('text-[10px] px-1.5 py-0.5 rounded-sm border font-semibold', TYPE_STYLES[log.type].badge)}>{log.type}</span>
+                    <button onClick={() => deleteLog(log.id)} className="opacity-0 group-hover:opacity-100 text-[#334155] hover:text-red-400 transition-all" aria-label="Delete log">
+                      <Trash2 className="w-3 h-3" />
                     </button>
                   </div>
                 </div>
@@ -217,28 +218,25 @@ export const FitnessTracker: React.FC = () => {
         </div>
       </div>
 
-      {/* All logs */}
-      <div className="bg-slate-800/60 border border-slate-700 rounded-2xl p-5">
-        <h3 className="text-sm font-bold text-slate-300 mb-4 uppercase tracking-wide">Recent History</h3>
-        <div className="space-y-2 max-h-[300px] overflow-y-auto custom-scrollbar pr-1">
+      {/* History */}
+      <div className="bg-[#111118] border border-[#1E1E2E] rounded-lg p-5">
+        <p className="section-label mb-4">Recent History</p>
+        <div className="space-y-2 max-h-[280px] overflow-y-auto">
           {logs.length === 0
-            ? <p className="text-slate-500 text-center py-8 text-sm">No workouts logged yet. Let's get moving! 🏋️</p>
+            ? <p className="text-[#334155] text-center py-8 text-sm font-mono">No workouts logged yet. Let's get moving!</p>
             : logs.map(log => (
-              <div key={log.id} className="flex items-center justify-between bg-slate-900 px-4 py-3 rounded-xl border border-slate-700/80 group hover:border-slate-600 transition-colors">
+              <div key={log.id} className="flex items-center justify-between bg-[#0D0D12] border border-[#1E1E2E] px-3 py-3 rounded-md group hover:border-[#2D2D42] transition-colors">
                 <div>
-                  <p className="text-sm font-medium text-slate-200">{TYPE_EMOJIS[log.type]} {log.exercise}</p>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-[13px] font-medium text-[#F1F5F9]">{log.exercise}</p>
+                  <p className="text-[11px] text-[#475569] font-mono">
                     {new Date(log.date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
-                    {' · '}{log.duration} min{log.calories ? ` · 🔥 ${log.calories} kcal` : ''}
+                    {' · '}{log.duration} min{log.calories ? ` · ${log.calories} kcal burned` : ''}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className={twMerge('text-[11px] px-2 py-0.5 rounded-md border font-semibold', TYPE_STYLES[log.type].badge)}>
-                    {log.type}
-                  </span>
-                  <button onClick={() => deleteLog(log.id)}
-                    className="opacity-0 group-hover:opacity-100 text-slate-600 hover:text-red-400 transition-all">
-                    <Trash2 className="w-3.5 h-3.5" />
+                  <span className={twMerge('text-[10px] px-1.5 py-0.5 rounded-sm border font-semibold', TYPE_STYLES[log.type].badge)}>{log.type}</span>
+                  <button onClick={() => deleteLog(log.id)} className="opacity-0 group-hover:opacity-100 text-[#334155] hover:text-red-400 transition-all" aria-label="Delete">
+                    <Trash2 className="w-3 h-3" />
                   </button>
                 </div>
               </div>

@@ -7,16 +7,17 @@ import type { MealLog, MealType } from '../types';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine,
 } from 'recharts';
-import { Utensils, Plus, Trash2, Target, TrendingUp, Apple } from 'lucide-react';
+import { Utensils, Plus, Trash2, TrendingUp, Flame, Sun, Moon, Apple, Coffee } from 'lucide-react';
 import { twMerge } from 'tailwind-merge';
+import { toast } from 'sonner';
 
 const MEAL_TYPES: MealType[] = ['Breakfast', 'Lunch', 'Dinner', 'Snack'];
 
-const MEAL_STYLES: Record<MealType, { badge: string; emoji: string }> = {
-  Breakfast: { badge: 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30',  emoji: '🌅' },
-  Lunch:     { badge: 'bg-orange-500/15 text-orange-400 border-orange-500/30',  emoji: '☀️' },
-  Dinner:    { badge: 'bg-indigo-500/15 text-indigo-400 border-indigo-500/30',  emoji: '🌙' },
-  Snack:     { badge: 'bg-green-500/15 text-green-400 border-green-500/30',     emoji: '🍎' },
+const MEAL_CONFIG: Record<MealType, { badge: string; color: string; icon: React.ElementType }> = {
+  Breakfast: { badge: 'bg-[#F59E0B15] text-[#FBBF24] border-[#F59E0B25]', color: '#F59E0B', icon: Sun   },
+  Lunch:     { badge: 'bg-[#F9731615] text-[#FB923C] border-[#F9731625]', color: '#F97316', icon: Utensils},
+  Dinner:    { badge: 'bg-[#6366F115] text-[#818CF8] border-[#6366F125]', color: '#6366F1', icon: Moon  },
+  Snack:     { badge: 'bg-[#10B98115] text-[#34D399] border-[#10B98125]', color: '#10B981', icon: Apple },
 };
 
 const getLast7Days = () => Array.from({ length: 7 }, (_, i) => {
@@ -31,9 +32,9 @@ const getLast7Days = () => Array.from({ length: 7 }, (_, i) => {
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-slate-800 border border-slate-700 rounded-xl p-3 shadow-xl text-xs">
-      <p className="font-bold text-slate-200 mb-1">{label}</p>
-      <p className="text-orange-400">{payload[0]?.value} kcal</p>
+    <div className="bg-[#18181F] border border-[#2D2D42] rounded-lg p-3 shadow-overlay text-xs">
+      <p className="font-semibold text-[#F1F5F9] mb-1">{label}</p>
+      <p className="text-[#10B981] font-mono">{payload[0]?.value} kcal</p>
     </div>
   );
 };
@@ -74,9 +75,10 @@ export const DietTracker: React.FC = () => {
     });
     setFoodName('');
     setCalories(300);
+    toast.success('Meal logged.');
   };
 
-  const deleteMeal = async (id: string) => deleteDoc(doc(db, 'meals', id));
+  const deleteMeal = async (id: string) => { await deleteDoc(doc(db, 'meals', id)); toast.success('Entry deleted.'); };
 
   const today = new Date().toISOString().split('T')[0];
 
@@ -104,98 +106,102 @@ export const DietTracker: React.FC = () => {
   }, [logs]);
 
   return (
-    <div className="space-y-6">
-      {/* Calorie ring + progress */}
+    <div className="space-y-5">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Today's progress */}
-        <div className="lg:col-span-2 bg-slate-800/60 border border-slate-700 rounded-2xl p-5">
+        <div className="lg:col-span-2 bg-[#111118] border border-[#1E1E2E] rounded-lg p-5">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold text-slate-100 flex items-center gap-2">
-              <Utensils className="w-5 h-5 text-green-400" /> Today's Intake
-            </h2>
+            <div className="flex items-center gap-2">
+              <Utensils className="w-4 h-4 text-[#10B981]" strokeWidth={1.75} />
+              <h2 className="text-[14px] font-semibold text-[#F1F5F9]">Today's Intake</h2>
+            </div>
             <div className="text-right">
-              <p className="text-2xl font-bold font-mono text-green-400">{todayCalories}</p>
-              <p className="text-xs text-slate-500">/ {calorieGoal} kcal</p>
+              <p className="text-2xl font-bold font-mono" style={{ color: isOver ? '#EF4444' : '#10B981' }}>{todayCalories}</p>
+              <p className="text-[11px] text-[#475569] font-mono">/ {calorieGoal} kcal goal</p>
             </div>
           </div>
 
-          {/* Progress bar */}
-          <div className="mb-4">
-            <div className="h-4 bg-slate-900 rounded-full overflow-hidden">
+          <div className="mb-5">
+            <div className="h-2.5 bg-[#1E1E2E] rounded-full overflow-hidden">
               <div
-                className={twMerge(
-                  'h-full rounded-full transition-all duration-700',
-                  isOver ? 'bg-gradient-to-r from-red-500 to-red-400'
-                         : pct > 80 ? 'bg-gradient-to-r from-yellow-500 to-orange-500'
-                         : 'bg-gradient-to-r from-green-500 to-emerald-400',
-                )}
-                style={{ width: `${Math.min(100, pct)}%` }}
+                className="h-full rounded-full transition-all duration-700"
+                style={{
+                  width: `${Math.min(100, pct)}%`,
+                  background: isOver ? 'linear-gradient(90deg, #EF4444, #F87171)'
+                            : pct > 80 ? 'linear-gradient(90deg, #F59E0B, #FBBF24)'
+                            : 'linear-gradient(90deg, #10B981, #34D399)',
+                }}
               />
             </div>
-            <div className="flex justify-between mt-1.5 text-xs text-slate-500">
+            <div className="flex justify-between mt-2 text-[11px] text-[#475569] font-mono">
               <span>0</span>
-              <span className={twMerge('font-semibold', isOver ? 'text-red-400' : remaining < 200 ? 'text-yellow-400' : 'text-emerald-400')}>
-                {isOver ? `⚠️ ${Math.abs(remaining)} kcal over!` : `${remaining} kcal remaining`}
+              <span className={isOver ? 'text-red-400 font-semibold' : remaining < 200 ? 'text-amber-400 font-semibold' : 'text-[#10B981] font-semibold'}>
+                {isOver ? `${Math.abs(remaining)} kcal over` : `${remaining} kcal remaining`}
               </span>
               <span>{calorieGoal}</span>
             </div>
           </div>
 
-          {/* Meal breakdown chips */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {mealBreakdown.map(({ type, calories: cal, count }) => (
-              <div key={type} className={twMerge('p-3 rounded-xl border text-center', MEAL_STYLES[type].badge)}>
-                <p className="text-lg">{MEAL_STYLES[type].emoji}</p>
-                <p className="text-xs font-bold mt-1">{type}</p>
-                <p className="text-base font-bold font-mono mt-0.5">{cal}</p>
-                <p className="text-[10px] opacity-60">{count} item{count !== 1 ? 's' : ''}</p>
-              </div>
-            ))}
+            {mealBreakdown.map(({ type, calories: cal, count }) => {
+              const Ic = MEAL_CONFIG[type].icon;
+              return (
+                <div key={type} className={`p-3 rounded-md border text-center ${MEAL_CONFIG[type].badge}`}>
+                  <Ic className="w-4 h-4 mx-auto mb-1" />
+                  <p className="text-[11px] font-bold">{type}</p>
+                  <p className="text-base font-bold font-mono mt-0.5">{cal}</p>
+                  <p className="text-[10px] opacity-60">{count} item{count !== 1 ? 's' : ''}</p>
+                </div>
+              );
+            })}
           </div>
         </div>
 
         {/* Log form */}
-        <div className="bg-slate-800/60 border border-slate-700 rounded-2xl p-5 space-y-3">
-          <h3 className="text-sm font-bold text-slate-300 flex items-center gap-2">
-            <Plus className="w-4 h-4 text-green-400" /> Log Meal
-          </h3>
+        <div className="bg-[#111118] border border-[#1E1E2E] rounded-lg p-5 space-y-3">
+          <div className="flex items-center gap-2">
+            <Plus className="w-4 h-4 text-[#10B981]" strokeWidth={1.75} />
+            <h3 className="text-[14px] font-semibold text-[#F1F5F9]">Log Meal</h3>
+          </div>
           <form onSubmit={addMeal} className="space-y-3">
             <input type="text" value={foodName} onChange={e => setFoodName(e.target.value)}
               placeholder="Food name (e.g. Dal Rice)"
-              className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-green-500 transition-colors" />
+              className="input-base"
+              aria-label="Food name" />
 
-            <div className="flex gap-2">
+            <div className="flex gap-2 items-center">
               <input type="number" min={0} max={5000} value={calories}
                 onChange={e => setCalories(Number(e.target.value))}
-                className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-green-500 transition-colors"
-                placeholder="Calories" />
-              <span className="text-slate-400 text-sm self-center shrink-0">kcal</span>
+                className="input-base flex-1"
+                placeholder="Calories"
+                aria-label="Calories" />
+              <span className="text-[#475569] text-sm shrink-0">kcal</span>
             </div>
 
-            {/* Meal type pills */}
             <div className="grid grid-cols-2 gap-1.5">
               {MEAL_TYPES.map(mt => (
                 <button key={mt} type="button" onClick={() => setMealType(mt)}
-                  className={twMerge('py-1.5 text-xs font-semibold rounded-xl border transition-all',
-                    mealType === mt ? MEAL_STYLES[mt].badge : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-600')}>
-                  {MEAL_STYLES[mt].emoji} {mt}
+                  className={twMerge(
+                    'py-1.5 text-[12px] font-semibold rounded-md border transition-all',
+                    mealType === mt ? MEAL_CONFIG[mt].badge : 'bg-[#0D0D12] border-[#1E1E2E] text-[#475569] hover:border-[#2D2D42]',
+                  )}>
+                  {mt}
                 </button>
               ))}
             </div>
 
-            {/* Quick-add presets */}
             <div className="flex flex-wrap gap-1.5">
-              {[['Chai ☕', 50], ['Roti 🫓', 80], ['Rice 🍚', 150], ['Egg 🥚', 70]].map(([n, c]) => (
+              {[['Chai', 50], ['Roti', 80], ['Rice', 150], ['Egg', 70], ['Milk', 120]] .map(([n, c]) => (
                 <button key={String(n)} type="button"
-                  onClick={() => { setFoodName(String(n).replace(/ .*/,'')); setCalories(Number(c)); }}
-                  className="px-2.5 py-1 text-[11px] bg-slate-900 border border-slate-700 hover:border-green-500/50 text-slate-400 hover:text-green-400 rounded-lg transition-colors">
+                  onClick={() => { setFoodName(String(n)); setCalories(Number(c)); }}
+                  className="px-2 py-1 text-[11px] bg-[#0D0D12] border border-[#1E1E2E] hover:border-[#10B981]/30 text-[#475569] hover:text-[#10B981] rounded-md transition-colors font-mono">
                   {n} ({c})
                 </button>
               ))}
             </div>
 
             <button type="submit"
-              className="w-full bg-green-500 hover:bg-green-400 active:scale-95 text-slate-900 font-bold py-2.5 rounded-xl text-sm transition-all">
+              className="w-full bg-[#10B981] hover:bg-[#34D399] active:scale-95 text-[#09090B] font-bold py-2.5 rounded-md text-sm transition-all">
               Add Meal
             </button>
           </form>
@@ -203,53 +209,55 @@ export const DietTracker: React.FC = () => {
       </div>
 
       {/* Weekly chart */}
-      <div className="bg-slate-800/60 border border-slate-700 rounded-2xl p-5">
-        <h3 className="text-sm font-bold text-slate-300 mb-4 flex items-center gap-2">
-          <TrendingUp className="w-4 h-4 text-green-400" /> Weekly Calorie Intake
-        </h3>
+      <div className="bg-[#111118] border border-[#1E1E2E] rounded-lg p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <TrendingUp className="w-4 h-4 text-[#10B981]" strokeWidth={1.75} />
+          <h3 className="text-[12px] font-semibold text-[#94A3B8]">Weekly Calorie Intake</h3>
+        </div>
         <ResponsiveContainer width="100%" height={180}>
           <LineChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-            <XAxis dataKey="label" stroke="#475569" fontSize={12} tickLine={false} axisLine={false} />
-            <YAxis stroke="#475569" fontSize={12} tickLine={false} axisLine={false} width={35} />
-            <ReferenceLine y={calorieGoal} stroke="#f59e0b" strokeDasharray="4 4" strokeOpacity={0.6} />
+            <CartesianGrid strokeDasharray="3 3" stroke="#1E1E2E" vertical={false} />
+            <XAxis dataKey="label" stroke="#475569" fontSize={11} tickLine={false} axisLine={false} />
+            <YAxis stroke="#475569" fontSize={11} tickLine={false} axisLine={false} width={40} />
+            <ReferenceLine y={calorieGoal} stroke="#F59E0B" strokeDasharray="4 4" strokeOpacity={0.5} />
             <Tooltip content={<CustomTooltip />} />
-            <Line type="monotone" dataKey="calories" stroke="#22c55e" strokeWidth={3}
-              dot={{ fill: '#22c55e', r: 4 }} activeDot={{ r: 6 }} />
+            <Line type="monotone" dataKey="calories" stroke="#10B981" strokeWidth={2}
+              dot={{ fill: '#10B981', r: 3 }} activeDot={{ r: 5 }} />
           </LineChart>
         </ResponsiveContainer>
-        <p className="text-xs text-slate-500 mt-1 text-center">
-          Dashed line = daily goal ({calorieGoal} kcal). Change in <span className="text-emerald-400">Settings</span>.
+        <p className="text-[10px] text-[#334155] font-mono mt-1.5 text-center">
+          Amber dashed line = daily goal ({calorieGoal} kcal). Change in Settings.
         </p>
       </div>
 
       {/* Today's meal list */}
-      <div className="bg-slate-800/60 border border-slate-700 rounded-2xl p-5">
-        <h3 className="text-sm font-bold text-slate-300 mb-4 uppercase tracking-wide">Today's Meals</h3>
+      <div className="bg-[#111118] border border-[#1E1E2E] rounded-lg p-5">
+        <p className="section-label mb-4">Today's Meals</p>
         {todayLogs.length === 0
-          ? <p className="text-slate-500 text-sm text-center py-6">Nothing logged today yet. Track what you eat! 🥗</p>
+          ? <p className="text-[#334155] text-sm text-center py-6 font-mono">Nothing logged today yet.</p>
           : (
-            <div className="space-y-2 max-h-[280px] overflow-y-auto custom-scrollbar pr-1">
-              {todayLogs.map(log => (
-                <div key={log.id} className="flex items-center justify-between bg-slate-900 px-4 py-3 rounded-xl border border-slate-700/80 group hover:border-slate-600 transition-colors">
-                  <div>
-                    <p className="text-sm font-medium text-slate-200">
-                      {MEAL_STYLES[log.mealType].emoji} {log.name}
-                    </p>
-                    <p className="text-xs text-slate-500">{new Date(log.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+            <div className="space-y-2 max-h-[280px] overflow-y-auto">
+              {todayLogs.map(log => {
+                const Ic = MEAL_CONFIG[log.mealType].icon;
+                return (
+                  <div key={log.id} className="flex items-center justify-between bg-[#0D0D12] border border-[#1E1E2E] px-3 py-3 rounded-md group hover:border-[#2D2D42] transition-colors">
+                    <div className="flex items-center gap-2.5">
+                      <Ic className="w-3.5 h-3.5 shrink-0" style={{ color: MEAL_CONFIG[log.mealType].color }} />
+                      <div>
+                        <p className="text-sm font-medium text-[#F1F5F9]">{log.name}</p>
+                        <p className="text-[10px] text-[#475569] font-mono">{new Date(log.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-bold font-mono" style={{ color: MEAL_CONFIG[log.mealType].color }}>{log.calories} kcal</span>
+                      <span className={twMerge('text-[10px] px-1.5 py-0.5 rounded-sm border font-semibold', MEAL_CONFIG[log.mealType].badge)}>{log.mealType}</span>
+                      <button onClick={() => deleteMeal(log.id)} className="opacity-0 group-hover:opacity-100 text-[#334155] hover:text-red-400 transition-all" aria-label="Delete meal">
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm font-bold text-green-400 font-mono">{log.calories} kcal</span>
-                    <span className={twMerge('text-[11px] px-2 py-0.5 rounded-md border font-semibold', MEAL_STYLES[log.mealType].badge)}>
-                      {log.mealType}
-                    </span>
-                    <button onClick={() => deleteMeal(log.id)}
-                      className="opacity-0 group-hover:opacity-100 text-slate-600 hover:text-red-400 transition-all">
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )
         }
