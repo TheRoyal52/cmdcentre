@@ -1,0 +1,34 @@
+{
+  "name": "Command Center — PEC Edition",
+  "short_name": "CmdCenter",
+  "description": "Placement & EE Semester Dashboard — Attendance, LeetCode, AI Mentor, Fitness & Diet",
+  "theme_color": "#020617",
+  "background_color": "#020617",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "start_url": "/",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "url": "/",
+      "description": "Go to overview dashboard"
+    }
+  ],
+  "categories": ["education", "productivity"],
+  "lang": "en"
+}

@@ -1,0 +1,54 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    @apply bg-slate-950 text-slate-100 min-h-screen antialiased;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+  input, select, textarea {
+    @apply text-slate-100;
+    color-scheme: dark;
+  }
+  code, pre, .font-mono {
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #334155; border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+/* Hide scrollbar but keep functionality */
+.hide-scrollbar::-webkit-scrollbar { display: none; }
+.hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Glow effects */
+.glow-emerald { box-shadow: 0 0 20px -5px rgba(16, 185, 129, 0.4); }
+.glow-cyan    { box-shadow: 0 0 20px -5px rgba(34, 211, 238, 0.4); }
+.glow-indigo  { box-shadow: 0 0 20px -5px rgba(99, 102, 241, 0.4); }
+
+/* Animated gradient border */
+@keyframes borderGlow {
+  0%, 100% { border-color: rgba(16,185,129,0.3); }
+  50%       { border-color: rgba(34,211,238,0.5); }
+}
+.animate-border-glow { animation: borderGlow 3s ease-in-out infinite; }
+
+/* Kanban drag-over highlight */
+.drag-over { @apply ring-2 ring-cyan-500/50 bg-cyan-500/5; }
+
+/* Pulsing dot */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.5; transform: scale(0.8); }
+}
+.pulse-dot { animation: pulse-dot 2s ease-in-out infinite; }
