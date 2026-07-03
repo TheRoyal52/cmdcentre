@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { getGeminiChatSession } from '../lib/gemini';
-import { Send, Bot, User, Sparkles, Loader2, Trash2, Copy, Check, Terminal } from 'lucide-react';
+import { Send, Bot, User, Sparkles, Loader2, Trash2, Copy, Check, X } from 'lucide-react';
 import {
   collection, addDoc, onSnapshot, query, orderBy, limit, deleteDoc, getDocs,
 } from 'firebase/firestore';
@@ -35,8 +35,8 @@ const CopyButton: React.FC<{ text: string }> = ({ text }) => {
   );
 };
 
-/* ─── Markdown renderer — handles fenced code blocks, inline code, bold ──── */
-const renderMarkdown = (text: string): React.ReactNode => {
+/* ─── Markdown renderer ────────────────────────────────────────────────────── */
+const renderMarkdown = (text: string, isStreaming = false): React.ReactNode => {
   const codeBlockRegex = /```(\w*)\n?([\s\S]*?)```/g;
   const parts: React.ReactNode[] = [];
   let lastIndex = 0;
@@ -71,6 +71,7 @@ const renderMarkdown = (text: string): React.ReactNode => {
     parts.push(
       <span key={key++} className="whitespace-pre-wrap">
         {renderInline(text.slice(lastIndex))}
+        {isStreaming && <span className="inline-block w-0.5 h-3.5 bg-[#A78BFA] ml-0.5 align-middle animate-pulse" />}
       </span>,
     );
   }
@@ -97,20 +98,21 @@ const renderInline = (text: string): React.ReactNode => {
 /* ─── Quick prompts ───────────────────────────────────────────────────────── */
 const QUICK_PROMPTS = [
   { label: 'Induction Motor faults',    text: 'Explain 3-Phase Induction Motor faults in simple terms' },
-  { label: 'Java Arrays mock interview', text: 'Mock SDE interview me on Java Arrays — ask 3 progressively harder questions' },
+  { label: 'Java Arrays interview',      text: 'Mock SDE interview me on Java Arrays — ask 3 progressively harder questions' },
   { label: 'Control Systems damping',   text: 'Explain underdamped, overdamped and critically damped systems with examples' },
   { label: 'React useEffect bugs',      text: 'Explain the most common React useEffect bugs and how to fix them' },
-  { label: 'Power System fault types',  text: 'Explain Power System Fault Analysis: types of faults and their effects' },
+  { label: 'Power System faults',       text: 'Explain Power System Fault Analysis: types of faults and their effects' },
   { label: 'Big-O cheatsheet',          text: 'Give me a concise Big-O complexity cheatsheet for common data structures' },
 ];
 
 /* ─── Main component ──────────────────────────────────────────────────────── */
 export const GeminiChatbot: React.FC = () => {
-  const [messages,     setMessages]     = useState<ChatMessage[]>([]);
-  const [input,        setInput]        = useState('');
-  const [isLoading,    setIsLoading]    = useState(false);
-  const [chatSession,  setChatSession]  = useState<ReturnType<typeof getGeminiChatSession> | null>(null);
-  const [error,        setError]        = useState<string | null>(null);
+  const [messages,       setMessages]       = useState<ChatMessage[]>([]);
+  const [input,          setInput]          = useState('');
+  const [isLoading,      setIsLoading]      = useState(false);
+  const [streamingText,  setStreamingText]  = useState<string | null>(null); // live streamed text
+  const [chatSession,    setChatSession]    = useState<ReturnType<typeof getGeminiChatSession> | null>(null);
+  const [error,          setError]          = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef       = useRef<HTMLTextAreaElement>(null);
 
@@ -130,7 +132,7 @@ export const GeminiChatbot: React.FC = () => {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isLoading]);
+  }, [messages, isLoading, streamingText]);
 
   // Auto-resize textarea
   const autoResize = () => {
@@ -147,6 +149,18 @@ export const GeminiChatbot: React.FC = () => {
     toast.success('Chat history cleared.');
   };
 
+  // Keyboard shortcut: Ctrl+L to clear
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'l') {
+        e.preventDefault();
+        clearHistory();
+      }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, []);
+
   const handleSend = useCallback(async (text: string) => {
     const trimmed = text.trim();
     if (!trimmed || isLoading) return;
@@ -161,12 +175,25 @@ export const GeminiChatbot: React.FC = () => {
     await addDoc(collection(db, 'chatHistory'), { role: 'user', text: trimmed, timestamp: ts });
 
     try {
-      const result      = await chatSession.sendMessage(trimmed);
-      const responseText = result.response.text();
+      // ── STREAMING ──────────────────────────────────────────────────────────
+      const stream = await chatSession.sendMessageStream(trimmed);
+      let fullText = '';
+      setStreamingText('');
+
+      for await (const chunk of stream) {
+        const delta = chunk.text();
+        fullText += delta;
+        setStreamingText(fullText);
+        // smooth scroll as tokens arrive
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }
+
+      setStreamingText(null);
       await addDoc(collection(db, 'chatHistory'), {
-        role: 'model', text: responseText, timestamp: new Date().toISOString(),
+        role: 'model', text: fullText, timestamp: new Date().toISOString(),
       });
     } catch (err: any) {
+      setStreamingText(null);
       const msg = err?.message?.includes('API_KEY')
         ? 'Invalid Gemini API key. Check your .env.local file.'
         : 'Gemini request failed. Try again.';
@@ -193,6 +220,14 @@ export const GeminiChatbot: React.FC = () => {
     } catch { return ''; }
   };
 
+  const fmtRelative = (iso: string) => {
+    const diff = Date.now() - new Date(iso).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins}m ago`;
+    return `${Math.floor(mins / 60)}h ago`;
+  };
+
   return (
     <div className="flex flex-col h-full bg-[#111118] border border-[#1E1E2E] rounded-lg overflow-hidden">
 
@@ -205,15 +240,18 @@ export const GeminiChatbot: React.FC = () => {
           <div>
             <h2 className="text-[14px] font-semibold text-[#F1F5F9]">EE Viva & SDE Mentor</h2>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="w-1.5 h-1.5 bg-[#10B981] rounded-full live-dot" />
-              <p className="text-[11px] text-[#A78BFA] font-mono">Gemini 1.5 Flash · Ready</p>
+              <span className={twMerge('w-1.5 h-1.5 rounded-full', isLoading ? 'bg-[#F59E0B] animate-pulse' : 'bg-[#10B981]')} />
+              <p className="text-[11px] text-[#A78BFA] font-mono">
+                Gemini 2.5 Flash · {isLoading ? 'Streaming…' : 'Ready'}
+              </p>
             </div>
           </div>
         </div>
         <button
           onClick={clearHistory}
           className="flex items-center gap-1.5 text-[11px] text-[#475569] hover:text-red-400 hover:bg-red-500/8 px-2.5 py-1.5 rounded-md transition-all border border-transparent hover:border-red-500/15"
-          aria-label="Clear chat history"
+          aria-label="Clear chat history (Ctrl+L)"
+          title="Clear history (Ctrl+L)"
         >
           <Trash2 className="w-3 h-3" />
           Clear
@@ -225,12 +263,15 @@ export const GeminiChatbot: React.FC = () => {
         <div className="mx-4 mt-3 p-2.5 bg-red-500/8 border border-red-500/20 rounded-md text-[12px] text-red-400 font-medium shrink-0 flex items-start gap-2">
           <span className="mt-0.5">⚠</span>
           {error}
+          <button onClick={() => setError(null)} className="ml-auto text-red-400/60 hover:text-red-400" aria-label="Dismiss error">
+            <X className="w-3.5 h-3.5" />
+          </button>
         </div>
       )}
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
-        {messages.length === 0 && !isLoading && (
+        {messages.length === 0 && !isLoading && streamingText === null && (
           <div className="text-center mt-12 select-none">
             <div className="w-14 h-14 bg-[#A78BFA]/8 border border-[#A78BFA]/20 rounded-xl flex items-center justify-center mx-auto mb-4">
               <Sparkles className="w-7 h-7 text-[#A78BFA] opacity-60" />
@@ -244,7 +285,7 @@ export const GeminiChatbot: React.FC = () => {
           <div
             key={msg.id}
             className={twMerge(
-              'flex gap-2.5 max-w-[90%] msg-enter',
+              'flex gap-2.5 max-w-[92%] msg-enter',
               msg.role === 'user' ? 'ml-auto flex-row-reverse' : 'mr-auto',
             )}
           >
@@ -255,28 +296,51 @@ export const GeminiChatbot: React.FC = () => {
                 ? 'bg-[#6366F1]/12 border-[#6366F1]/25 text-[#818CF8]'
                 : 'bg-[#A78BFA]/12 border-[#A78BFA]/25 text-[#A78BFA]',
             )}>
-              {msg.role === 'user'
-                ? <User className="w-3.5 h-3.5" />
-                : <Bot className="w-3.5 h-3.5" />
-              }
+              {msg.role === 'user' ? <User className="w-3.5 h-3.5" /> : <Bot className="w-3.5 h-3.5" />}
             </div>
 
             {/* Bubble */}
             <div className={twMerge(
-              'px-3.5 py-2.5 rounded-lg text-sm',
+              'px-3.5 py-2.5 rounded-lg text-sm min-w-0 overflow-hidden',
               msg.role === 'user'
                 ? 'bg-[#6366F1]/12 border border-[#6366F1]/20 text-[#E2E8F0] rounded-tr-sm'
                 : 'bg-[#18181F] border border-[#1E1E2E] text-[#94A3B8] rounded-tl-sm',
             )}>
               {renderMarkdown(msg.text)}
-              <p className="text-[10px] text-[#334155] font-mono mt-1.5 text-right">{fmtTime(msg.timestamp)}</p>
+              <p className="text-[10px] text-[#334155] font-mono mt-1.5 text-right" title={fmtTime(msg.timestamp)}>
+                {fmtRelative(msg.timestamp)}
+              </p>
             </div>
           </div>
         ))}
 
-        {/* Typing indicator */}
-        {isLoading && (
-          <div className="flex gap-2.5 max-w-[90%] mr-auto msg-enter">
+        {/* Live streaming bubble */}
+        {streamingText !== null && (
+          <div className="flex gap-2.5 max-w-[92%] mr-auto msg-enter">
+            <div className="w-7 h-7 rounded-md bg-[#A78BFA]/12 border border-[#A78BFA]/25 text-[#A78BFA] flex items-center justify-center shrink-0 mt-0.5">
+              <Bot className="w-3.5 h-3.5" />
+            </div>
+            <div className="px-3.5 py-2.5 rounded-lg rounded-tl-sm bg-[#18181F] border border-[#A78BFA]/20 text-[#94A3B8] text-sm min-w-0 overflow-hidden">
+              {streamingText.length > 0
+                ? renderMarkdown(streamingText, true)
+                : (
+                  <div className="flex items-center gap-2">
+                    <div className="flex gap-1">
+                      {[0, 1, 2].map(i => (
+                        <span key={i} className="w-1.5 h-1.5 bg-[#A78BFA] rounded-full animate-pulse" style={{ animationDelay: `${i * 150}ms` }} />
+                      ))}
+                    </div>
+                    <span className="text-[12px] text-[#475569]">Thinking…</span>
+                  </div>
+                )
+              }
+            </div>
+          </div>
+        )}
+
+        {/* Fallback typing indicator when session is starting */}
+        {isLoading && streamingText === null && (
+          <div className="flex gap-2.5 max-w-[92%] mr-auto msg-enter">
             <div className="w-7 h-7 rounded-md bg-[#A78BFA]/12 border border-[#A78BFA]/25 text-[#A78BFA] flex items-center justify-center shrink-0">
               <Bot className="w-3.5 h-3.5" />
             </div>
@@ -286,7 +350,7 @@ export const GeminiChatbot: React.FC = () => {
                   <span key={i} className="w-1.5 h-1.5 bg-[#A78BFA] rounded-full animate-pulse" style={{ animationDelay: `${i * 150}ms` }} />
                 ))}
               </div>
-              <span className="text-[12px] text-[#475569]">Thinking…</span>
+              <span className="text-[12px] text-[#475569]">Connecting…</span>
             </div>
           </div>
         )}
@@ -319,7 +383,7 @@ export const GeminiChatbot: React.FC = () => {
               value={input}
               onChange={e => { setInput(e.target.value); autoResize(); }}
               onKeyDown={handleKeyDown}
-              placeholder="Ask about DSA, EE theory, or debugging… (Enter to send, Shift+Enter for newline)"
+              placeholder="Ask about DSA, EE theory, debugging… (Enter to send, Shift+Enter for newline)"
               rows={1}
               className="w-full bg-[#1F1F2A] border border-[#1E1E2E] focus:border-[#6366F1] rounded-md px-3 py-2.5 text-sm text-[#F1F5F9] placeholder-[#334155] focus:outline-none transition-colors resize-none leading-relaxed"
               style={{ minHeight: '40px', maxHeight: '160px' }}
@@ -335,7 +399,7 @@ export const GeminiChatbot: React.FC = () => {
             {isLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
           </button>
         </form>
-        <p className="text-[10px] text-[#334155] font-mono mt-1.5 px-0.5">↵ send · ⇧↵ newline</p>
+        <p className="text-[10px] text-[#334155] font-mono mt-1.5 px-0.5">↵ send · ⇧↵ newline · Ctrl+L clear</p>
       </div>
     </div>
   );

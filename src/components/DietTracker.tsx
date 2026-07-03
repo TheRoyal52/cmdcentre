@@ -109,7 +109,12 @@ export const DietTracker: React.FC = () => {
     <div className="space-y-5">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Today's progress */}
-        <div className="lg:col-span-2 bg-[#111118] border border-[#1E1E2E] rounded-lg p-5">
+        <div className={twMerge(
+          'lg:col-span-2 border rounded-lg p-5 transition-all duration-500',
+          isOver
+            ? 'bg-red-950/20 border-red-500/30'
+            : 'bg-[#111118] border-[#1E1E2E]',
+        )}>
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Utensils className="w-4 h-4 text-[#10B981]" strokeWidth={1.75} />

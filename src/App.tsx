@@ -282,6 +282,7 @@ export default function App() {
   const [lcTab,         setLcTab]         = useState<'stats' | 'log'>('stats');
   const [loginError,    setLoginError]    = useState<string | null>(null);
   const [dataReady,     setDataReady]     = useState(false);
+  const [focusMode,     setFocusMode]     = useState(false);
 
   const [tasks,      setTasks]      = useState<PlacementTask[]>([]);
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
@@ -356,6 +357,19 @@ export default function App() {
       }
 
       if (isInput) return;
+
+      // Escape — exit focus mode
+      if (e.key === 'Escape') { setFocusMode(false); return; }
+
+      // F — toggle focus mode (distraction-free)
+      if (e.key === 'f' || e.key === 'F') {
+        setFocusMode(v => {
+          const next = !v;
+          toast.info(next ? 'Focus mode on — press F or Esc to exit' : 'Focus mode off', { duration: 2000 });
+          return next;
+        });
+        return;
+      }
 
       // G then X navigation shortcuts
       if (e.key.toLowerCase() === 'g' && !e.metaKey && !e.ctrlKey) {
@@ -450,8 +464,9 @@ export default function App() {
       <aside className={twMerge(
         'fixed md:relative inset-y-0 left-0 z-40 w-[220px] shrink-0 flex flex-col',
         'bg-[#0D0D12] border-r border-[#1E1E2E]',
-        'transition-transform duration-300 ease-in-out',
+        'transition-all duration-300 ease-in-out',
         sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
+        focusMode && 'md:-translate-x-full md:w-0 md:border-0 overflow-hidden',
       )}>
         <SidebarContent
           activeTab={activeTab}
@@ -468,7 +483,11 @@ export default function App() {
       <div className="flex-1 flex flex-col h-screen overflow-hidden min-w-0">
 
         {/* Desktop top bar */}
-        <header className="hidden md:flex items-center gap-4 px-6 py-3 border-b border-[#1E1E2E] bg-[#09090B] shrink-0">
+        <header className={twMerge(
+          'hidden md:flex items-center gap-4 px-6 py-3 border-b border-[#1E1E2E] bg-[#09090B] shrink-0',
+          'transition-all duration-300',
+          focusMode && 'hidden',
+        )}>
           {/* Breadcrumb */}
           <div className="flex items-center gap-1.5 text-sm">
             <span className="text-[#334155] font-mono">~</span>
@@ -479,6 +498,17 @@ export default function App() {
           </div>
 
           <div className="flex-1" />
+
+          {/* Focus mode badge */}
+          {focusMode && (
+            <button
+              onClick={() => setFocusMode(false)}
+              className="flex items-center gap-1.5 text-[11px] font-mono text-[#6366F1] bg-[#6366F1]/8 border border-[#6366F1]/20 px-2 py-1 rounded-md hover:bg-[#6366F1]/15 transition-colors"
+            >
+              <span className="w-1.5 h-1.5 bg-[#6366F1] rounded-full animate-pulse" />
+              Focus mode · press F to exit
+            </button>
+          )}
 
           {/* ⌘K trigger */}
           <button

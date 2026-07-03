@@ -3,7 +3,7 @@ import { collection, onSnapshot, addDoc, deleteDoc, doc, query, orderBy } from '
 import { db } from '../lib/firebase';
 import type { WorkoutLog, WorkoutType } from '../types';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine,
 } from 'recharts';
 import { Dumbbell, Plus, Trash2, Flame, Timer, Zap, Activity } from 'lucide-react';
 import { toast } from 'sonner';
@@ -104,19 +104,42 @@ export const FitnessTracker: React.FC = () => {
     return logs.filter(l => l.date.startsWith(today));
   }, [logs]);
 
+  // Longest streak
+  const longestStreak = useMemo(() => {
+    const sorted = [...new Set(logs.map(l => l.date.split('T')[0]))].sort();
+    let max = 0, cur = 0, prev = '';
+    for (const d of sorted) {
+      if (prev) {
+        const diff = (new Date(d).getTime() - new Date(prev).getTime()) / 86400000;
+        cur = diff === 1 ? cur + 1 : 1;
+      } else { cur = 1; }
+      if (cur > max) max = cur;
+      prev = d;
+    }
+    return max;
+  }, [logs]);
+
   const todayMins = todayLogs.reduce((s, l) => s + l.duration, 0);
   const weekMins  = chartData.reduce((s, d) => s + d.mins, 0);
+  const WHO_WEEKLY_MIN = 150;
 
   return (
     <div className="space-y-5">
       {/* Stats row */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-4 gap-3">
         <div className="bg-[#111118] border border-[#1E1E2E] rounded-lg p-4 text-center">
           <div className="flex items-center justify-center gap-2 mb-1">
             <Flame className={twMerge('w-5 h-5', streak > 0 ? 'text-[#F97316] flame-flicker' : 'text-[#334155]')} />
             <span className="text-2xl font-bold font-mono" style={{ color: streak > 0 ? '#F97316' : '#334155' }}>{streak}</span>
           </div>
-          <p className="section-label">Day Streak</p>
+          <p className="section-label">Streak</p>
+        </div>
+        <div className="bg-[#111118] border border-[#1E1E2E] rounded-lg p-4 text-center">
+          <div className="flex items-center justify-center gap-2 mb-1">
+            <Zap className="w-5 h-5 text-[#FCD34D]" />
+            <span className="text-2xl font-bold font-mono text-[#FCD34D]">{longestStreak}</span>
+          </div>
+          <p className="section-label">Best Streak</p>
         </div>
         <div className="bg-[#111118] border border-[#1E1E2E] rounded-lg p-4 text-center">
           <div className="flex items-center justify-center gap-2 mb-1">
@@ -125,12 +148,15 @@ export const FitnessTracker: React.FC = () => {
           </div>
           <p className="section-label">Mins Today</p>
         </div>
-        <div className="bg-[#111118] border border-[#1E1E2E] rounded-lg p-4 text-center">
+        <div className={twMerge('bg-[#111118] border rounded-lg p-4 text-center', weekMins >= WHO_WEEKLY_MIN ? 'border-[#10B981]/30' : 'border-[#1E1E2E]')}>
           <div className="flex items-center justify-center gap-2 mb-1">
             <Activity className="w-5 h-5 text-[#10B981]" />
-            <span className="text-2xl font-bold text-[#10B981] font-mono">{weekMins}</span>
+            <span className="text-2xl font-bold font-mono" style={{ color: weekMins >= WHO_WEEKLY_MIN ? '#10B981' : '#F59E0B' }}>{weekMins}</span>
           </div>
-          <p className="section-label">Mins This Week</p>
+          <p className="section-label">Week mins</p>
+          <p className="text-[9px] font-mono mt-0.5" style={{ color: weekMins >= WHO_WEEKLY_MIN ? '#10B981' : '#F59E0B' }}>
+            {weekMins >= WHO_WEEKLY_MIN ? `WHO goal met!` : `${WHO_WEEKLY_MIN - weekMins} to WHO goal`}
+          </p>
         </div>
       </div>
 
@@ -184,13 +210,18 @@ export const FitnessTracker: React.FC = () => {
 
         {/* Weekly chart */}
         <div className="bg-[#111118] border border-[#1E1E2E] rounded-lg p-5">
-          <p className="text-[12px] font-semibold text-[#94A3B8] mb-4">Weekly Activity (minutes)</p>
+          <p className="text-[12px] font-semibold text-[#94A3B8] mb-1">Weekly Activity (minutes)</p>
+          <p className="text-[10px] font-mono text-[#334155] mb-3">
+            Orange dashed = WHO recommended 150 min/week. You're at {weekMins}/{WHO_WEEKLY_MIN} min.
+          </p>
           <ResponsiveContainer width="100%" height={180}>
             <BarChart data={chartData} barSize={26}>
               <CartesianGrid strokeDasharray="3 3" stroke="#1E1E2E" vertical={false} />
               <XAxis dataKey="label" stroke="#475569" fontSize={11} tickLine={false} axisLine={false} />
               <YAxis stroke="#475569" fontSize={11} tickLine={false} axisLine={false} width={28} />
               <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.02)' }} />
+              {/* WHO 150 min/week ÷ 7 days ≈ 21.4 min/day */}
+              <ReferenceLine y={Math.round(WHO_WEEKLY_MIN / 7)} stroke="#F97316" strokeDasharray="4 4" strokeOpacity={0.6} label={{ value: 'WHO/day', position: 'insideTopRight', fontSize: 9, fill: '#F97316' }} />
               <Bar dataKey="mins" fill="#F97316" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
